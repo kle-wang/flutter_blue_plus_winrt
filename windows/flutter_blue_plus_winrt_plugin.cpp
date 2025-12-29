@@ -1303,6 +1303,8 @@ void FlutterBluePlusWinrtPlugin::ClearDeviceResources(std::string remote_id) {
         }
         service_cache_.erase(it_s);
     }
+    
+    rssi_cache_.erase(remote_id);
 }
 
 winrt::fire_and_forget FlutterBluePlusWinrtPlugin::PeriodicConnectionCheck() {

@@ -1,3 +1,6 @@
+## 0.0.10
+* Fix: ensure memory resources (like RSSI cache) are properly cleared upon disconnection.
+
 ## 0.0.9
 * Fix: "vector erase iterator outside range" crash by safely handling device closure to avoid synchronous vector modifications.
 
