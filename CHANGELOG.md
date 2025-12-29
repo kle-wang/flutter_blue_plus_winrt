@@ -1,3 +1,6 @@
+## 0.0.8
+* Fix: ensure `connect` method waits for actual physical connection completion before returning a result.
+
 ## 0.0.7
 * Fix: ensure `connect` returns `false` on failure instead of throwing an exception.
 * Improvement: refined connection state waiting logic for better reliability.
