@@ -1,3 +1,6 @@
+## 0.0.11
+* Refactor characteristic lookup and fix memory management.
+
 ## 0.0.10
 * Fix: ensure memory resources (like RSSI cache) are properly cleared upon disconnection.
 
