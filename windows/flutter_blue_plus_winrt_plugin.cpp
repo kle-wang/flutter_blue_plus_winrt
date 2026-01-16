@@ -253,6 +253,8 @@ FlutterBluePlusWinrtPlugin::GetCharacteristicAsync(
     int instance_id)
 {
     GattCharacteristic targetChar = nullptr;
+    winrt::guid targetServiceUuid = utils::parse_uuid(service_uuid_str);
+    winrt::guid targetCharUuid = utils::parse_uuid(characteristic_uuid_str);
 
     if (!primary_service_uuid_str.empty()) {
         winrt::guid primaryUuid = utils::parse_uuid(primary_service_uuid_str);
@@ -263,24 +265,23 @@ FlutterBluePlusWinrtPlugin::GetCharacteristicAsync(
 
         if (primaryResult.Status() == GattCommunicationStatus::Success) {
             for (auto primaryService : primaryResult.Services()) {
-                winrt::guid serviceUuid = utils::parse_uuid(service_uuid_str);
-                GattDeviceServicesResult includedResult = co_await primaryService.GetIncludedServicesForUuidAsync(serviceUuid, BluetoothCacheMode::Cached);
+                GattDeviceServicesResult includedResult = co_await primaryService.GetIncludedServicesForUuidAsync(targetServiceUuid, BluetoothCacheMode::Cached);
                 if (includedResult.Status() != GattCommunicationStatus::Success || includedResult.Services().Size() == 0) {
-                     includedResult = co_await primaryService.GetIncludedServicesForUuidAsync(serviceUuid, BluetoothCacheMode::Uncached);
+                     includedResult = co_await primaryService.GetIncludedServicesForUuidAsync(targetServiceUuid, BluetoothCacheMode::Uncached);
                 }
 
                 if (includedResult.Status() == GattCommunicationStatus::Success) {
                     for (auto service : includedResult.Services()) {
-                        winrt::guid charUuid = utils::parse_uuid(characteristic_uuid_str);
-                        GattCharacteristicsResult charsResult = co_await service.GetCharacteristicsForUuidAsync(charUuid, BluetoothCacheMode::Cached);
+                        GattCharacteristicsResult charsResult = co_await service.GetCharacteristicsForUuidAsync(targetCharUuid, BluetoothCacheMode::Cached);
                         if (charsResult.Status() != GattCommunicationStatus::Success || charsResult.Characteristics().Size() == 0) {
-                             charsResult = co_await service.GetCharacteristicsForUuidAsync(charUuid, BluetoothCacheMode::Uncached);
+                             charsResult = co_await service.GetCharacteristicsForUuidAsync(targetCharUuid, BluetoothCacheMode::Uncached);
                         }
 
                         if (charsResult.Status() == GattCommunicationStatus::Success) {
                             for (auto characteristic : charsResult.Characteristics()) {
                                 if (instance_id == 0 || static_cast<int32_t>(characteristic.AttributeHandle()) == instance_id) {
-                                    targetChar = characteristic; break;
+                                    targetChar = characteristic;
+                                    break;
                                 }
                             }
                         }
@@ -291,25 +292,23 @@ FlutterBluePlusWinrtPlugin::GetCharacteristicAsync(
             }
         }
     } else {
-        winrt::guid serviceUuid = utils::parse_uuid(service_uuid_str);
-        GattDeviceServicesResult servicesResult = co_await device.GetGattServicesForUuidAsync(serviceUuid, BluetoothCacheMode::Cached);
+        GattDeviceServicesResult servicesResult = co_await device.GetGattServicesForUuidAsync(targetServiceUuid, BluetoothCacheMode::Cached);
         if (servicesResult.Status() != GattCommunicationStatus::Success || servicesResult.Services().Size() == 0) {
-             servicesResult = co_await device.GetGattServicesForUuidAsync(serviceUuid, BluetoothCacheMode::Uncached);
+             servicesResult = co_await device.GetGattServicesForUuidAsync(targetServiceUuid, BluetoothCacheMode::Uncached);
         }
 
         if (servicesResult.Status() == GattCommunicationStatus::Success) {
-                winrt::guid serviceUuid = utils::parse_uuid(service_uuid_str);
-                if (service.Uuid() == serviceUuid) {
-                     winrt::guid charUuid = utils::parse_uuid(characteristic_uuid_str);
-                     auto charsResult = co_await service.GetCharacteristicsForUuidAsync(charUuid, BluetoothCacheMode::Cached);
+            for (auto service : servicesResult.Services()) {
+                if (service.Uuid() == targetServiceUuid) {
+                     GattCharacteristicsResult charsResult = co_await service.GetCharacteristicsForUuidAsync(targetCharUuid, BluetoothCacheMode::Cached);
                      if (charsResult.Status() != GattCommunicationStatus::Success || charsResult.Characteristics().Size() == 0) {
-                          charsResult = co_await service.GetCharacteristicsForUuidAsync(charUuid, BluetoothCacheMode::Uncached);
+                          charsResult = co_await service.GetCharacteristicsForUuidAsync(targetCharUuid, BluetoothCacheMode::Uncached);
                      }
                      if (charsResult.Status() == GattCommunicationStatus::Success && charsResult.Characteristics().Size() > 0) {
-                          targetChar = charsResult.Characteristics().GetAt(0);
                           for (auto c : charsResult.Characteristics()) {
-                                if(instance_id != 0 && static_cast<int32_t>(c.AttributeHandle()) == instance_id) {
-                                    targetChar = c; break;
+                                if(instance_id == 0 || static_cast<int32_t>(c.AttributeHandle()) == instance_id) {
+                                    targetChar = c;
+                                    break;
                                 }
                           }
                      }
@@ -467,13 +466,14 @@ FlutterBluePlusWinrtPlugin::GetCharacteristicInternalAsync(
 void FlutterBluePlusWinrtPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows* registrar) {
     auto plugin = std::make_unique<FlutterBluePlusWinrtPlugin>(registrar);
+    auto* plugin_pointer = plugin.get();
 
-    plugin->channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+    plugin_pointer->channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
         registrar->messenger(), "flutter_blue_plus/methods",
         &flutter::StandardMethodCodec::GetInstance());
 
-    plugin->channel_->SetMethodCallHandler(
-        [plugin_pointer = plugin.get()](const auto& call, auto result) {
+    plugin_pointer->channel_->SetMethodCallHandler(
+        [plugin_pointer](const auto& call, auto result) {
             plugin_pointer->HandleMethodCall(call, std::move(result));
         });
 
