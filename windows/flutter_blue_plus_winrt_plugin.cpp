@@ -1486,13 +1486,12 @@ void FlutterBluePlusWinrtPlugin::HandleMethodCall(const flutter::MethodCall<flut
             auto it = rssi_cache_.find(remote_id);
             if (it != rssi_cache_.end()) {
                 rssi_result[flutter::EncodableValue("rssi")] = flutter::EncodableValue(it->second);
-                rssi_result[flutter::EncodableValue("success")] = flutter::EncodableValue(1);
             } else {
                 rssi_result[flutter::EncodableValue("rssi")] = flutter::EncodableValue(0);
-                rssi_result[flutter::EncodableValue("success")] = flutter::EncodableValue(0);
-                rssi_result[flutter::EncodableValue("error_code")] = flutter::EncodableValue(1);
-                rssi_result[flutter::EncodableValue("error_string")] = flutter::EncodableValue("RSSI not cached");
             }
+            rssi_result[flutter::EncodableValue("success")] = flutter::EncodableValue(1);
+            rssi_result[flutter::EncodableValue("error_code")] = flutter::EncodableValue(0);
+            rssi_result[flutter::EncodableValue("error_string")] = flutter::EncodableValue("GATT_SUCCESS");
             channel_->InvokeMethod("OnReadRssi", std::make_unique<flutter::EncodableValue>(rssi_result));
             result->Success(flutter::EncodableValue(true));
         } else result->Error("readRssi", "Invalid arguments");
