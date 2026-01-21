@@ -1,3 +1,7 @@
+## 0.0.14
+* Improve: `systemDevices` now discovers both paired and connected devices.
+* Fix: Build error (unused variable warning) in `flutterRestart`.
+
 ## 0.0.13
 * Feat: Add bonding support and improve connection logic.
 
