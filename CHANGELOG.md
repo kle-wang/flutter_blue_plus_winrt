@@ -1,3 +1,6 @@
+## 0.0.13
+* Feat: Add bonding support and improve connection logic.
+
 ## 0.0.12
 * Fix: Resolve extensive compilation errors (C2220, C2065, C2653, C4456) caused by scope resolution and variable shadowing in GATT discovery logic.
 * Fix: `readRssi` now handles cache misses gracefully by returning 0 instead of throwing an exception when RSSI is not in the cache.
