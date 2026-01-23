@@ -1,3 +1,6 @@
+## 0.0.15
+* Fix: missing runtimeobject.lib (#7)
+
 ## 0.0.14
 * Improve: `systemDevices` now discovers both paired and connected devices.
 * Fix: Build error (unused variable warning) in `flutterRestart`.
