@@ -1504,12 +1504,13 @@ void FlutterBluePlusWinrtPlugin::ClearDeviceResources(std::string remote_id) {
     auto it_gs = gatt_sessions_.find(remote_id);
     if (it_gs != gatt_sessions_.end()) {
         try {
+            auto session = it_gs->second.as<GattSession>();
             auto it_mtu = mtu_tokens_.find(remote_id);
             if (it_mtu != mtu_tokens_.end()) {
-                it_gs->second.MaxPduSizeChanged(it_mtu->second);
+                session.MaxPduSizeChanged(it_mtu->second);
                 mtu_tokens_.erase(it_mtu);
             }
-            it_gs->second.Close();
+            session.Close();
         } catch(...) {}
         gatt_sessions_.erase(it_gs);
     }
@@ -1667,9 +1668,10 @@ void FlutterBluePlusWinrtPlugin::HandleMethodCall(const flutter::MethodCall<flut
         if (!remote_id.empty()) {
             auto it = gatt_sessions_.find(remote_id);
             if (it != gatt_sessions_.end()) {
+                auto session = it->second.as<GattSession>();
                 flutter::EncodableMap response;
                 response[flutter::EncodableValue("remote_id")] = flutter::EncodableValue(remote_id);
-                response[flutter::EncodableValue("mtu")] = flutter::EncodableValue(static_cast<int32_t>(it->second.MaxPduSize()));
+                response[flutter::EncodableValue("mtu")] = flutter::EncodableValue(static_cast<int32_t>(session.MaxPduSize()));
                 response[flutter::EncodableValue("success")] = flutter::EncodableValue(1);
                 response[flutter::EncodableValue("error_code")] = flutter::EncodableValue(0);
                 response[flutter::EncodableValue("error_string")] = flutter::EncodableValue("");

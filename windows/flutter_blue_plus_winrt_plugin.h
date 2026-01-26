@@ -67,7 +67,7 @@ class FlutterBluePlusWinrtPlugin : public flutter::Plugin {
   std::map<std::string, std::vector<winrt::Windows::Foundation::IInspectable>> service_cache_{};
 
   // MTU / Session Handling
-  std::map<std::string, winrt::Windows::Devices::Bluetooth::GenericAttributeProfile::GattSession> gatt_sessions_{};
+  std::map<std::string, winrt::Windows::Foundation::IInspectable> gatt_sessions_{};
   std::map<std::string, winrt::event_token> mtu_tokens_{};
 
   void OnAdvertisementReceived(
