@@ -1,3 +1,6 @@
+## 0.0.16
+* Fix: MTU was always 23 on Windows. Now reports negotiated MTU correctly.
+
 ## 0.0.15
 * Fix: missing runtimeobject.lib (#7)
 

@@ -903,6 +903,30 @@ winrt::fire_and_forget FlutterBluePlusWinrtPlugin::ConnectAsync(
                      connection_state[flutter::EncodableValue("connection_state")] = flutter::EncodableValue(1);
                      channel_->InvokeMethod("OnConnectionStateChanged", std::make_unique<flutter::EncodableValue>(connection_state));
                      result->Success(flutter::EncodableValue(true));
+
+                     // Create GattSession and subscribe to MTU changes
+                     try {
+                         auto bluetoothDeviceId = winrt::Windows::Devices::Bluetooth::BluetoothDeviceId::FromId(device.DeviceId());
+                         auto session = co_await GattSession::FromDeviceIdAsync(bluetoothDeviceId);
+                         if (session) {
+                             session.MaintainConnection(true);
+                             auto token = session.MaxPduSizeChanged([this, remote_id](GattSession const& s, IInspectable const&) {
+                                 this->OnMaxPduSizeChanged(remote_id, s, IInspectable{});
+                             });
+                             gatt_sessions_[remote_id] = session;
+                             mtu_tokens_[remote_id] = token;
+
+                             // Send initial MTU
+                             flutter::EncodableMap response;
+                             response[flutter::EncodableValue("remote_id")] = flutter::EncodableValue(remote_id);
+                             response[flutter::EncodableValue("mtu")] = flutter::EncodableValue(static_cast<int32_t>(session.MaxPduSize()));
+                             response[flutter::EncodableValue("success")] = flutter::EncodableValue(1);
+                             response[flutter::EncodableValue("error_code")] = flutter::EncodableValue(0);
+                             response[flutter::EncodableValue("error_string")] = flutter::EncodableValue("");
+                             channel_->InvokeMethod("OnMtuChanged", std::make_unique<flutter::EncodableValue>(response));
+                         }
+                     } catch (...) {}
+
                      co_return;
                  }
             }
@@ -1082,6 +1106,21 @@ void FlutterBluePlusWinrtPlugin::OnCharacteristicValueChanged(std::string remote
             response[flutter::EncodableValue("error_code")] = flutter::EncodableValue(0);
             response[flutter::EncodableValue("error_string")] = flutter::EncodableValue("GATT_SUCCESS");
             channel_->InvokeMethod("OnCharacteristicReceived", std::make_unique<flutter::EncodableValue>(response));
+        } catch(...) {}
+    }();
+}
+
+void FlutterBluePlusWinrtPlugin::OnMaxPduSizeChanged(std::string remote_id, const GattSession& sender, const IInspectable&) {
+    [this, remote_id, sender]() -> winrt::fire_and_forget {
+        try {
+            co_await ui_thread_;
+            flutter::EncodableMap response;
+            response[flutter::EncodableValue("remote_id")] = flutter::EncodableValue(remote_id);
+            response[flutter::EncodableValue("mtu")] = flutter::EncodableValue(static_cast<int32_t>(sender.MaxPduSize()));
+            response[flutter::EncodableValue("success")] = flutter::EncodableValue(1);
+            response[flutter::EncodableValue("error_code")] = flutter::EncodableValue(0);
+            response[flutter::EncodableValue("error_string")] = flutter::EncodableValue("");
+            channel_->InvokeMethod("OnMtuChanged", std::make_unique<flutter::EncodableValue>(response));
         } catch(...) {}
     }();
 }
@@ -1461,6 +1500,20 @@ void FlutterBluePlusWinrtPlugin::ClearDeviceResources(std::string remote_id) {
         service_cache_.erase(it_s);
     }
     
+    // Cleanup sessions and MTU tokens
+    auto it_gs = gatt_sessions_.find(remote_id);
+    if (it_gs != gatt_sessions_.end()) {
+        try {
+            auto it_mtu = mtu_tokens_.find(remote_id);
+            if (it_mtu != mtu_tokens_.end()) {
+                it_gs->second.MaxPduSizeChanged(it_mtu->second);
+                mtu_tokens_.erase(it_mtu);
+            }
+            it_gs->second.Close();
+        } catch(...) {}
+        gatt_sessions_.erase(it_gs);
+    }
+
     rssi_cache_.erase(remote_id);
 }
 
@@ -1604,7 +1657,28 @@ void FlutterBluePlusWinrtPlugin::HandleMethodCall(const flutter::MethodCall<flut
     if (method == "setLogLevel") { result->Success(flutter::EncodableValue(true)); return; }
     if (method == "setOptions") { result->Success(flutter::EncodableValue(true)); return; }
     if (method == "isSupported") { result->Success(flutter::EncodableValue(true)); return; }
-    if (method == "requestMtu") { result->Success(flutter::EncodableValue(true)); return; }
+    if (method == "requestMtu") {
+        const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+        std::string remote_id = "";
+        if (args) {
+            auto it = args->find(flutter::EncodableValue("remote_id"));
+            if (it != args->end()) remote_id = utils::from_value<std::string>(&it->second);
+        }
+        if (!remote_id.empty()) {
+            auto it = gatt_sessions_.find(remote_id);
+            if (it != gatt_sessions_.end()) {
+                flutter::EncodableMap response;
+                response[flutter::EncodableValue("remote_id")] = flutter::EncodableValue(remote_id);
+                response[flutter::EncodableValue("mtu")] = flutter::EncodableValue(static_cast<int32_t>(it->second.MaxPduSize()));
+                response[flutter::EncodableValue("success")] = flutter::EncodableValue(1);
+                response[flutter::EncodableValue("error_code")] = flutter::EncodableValue(0);
+                response[flutter::EncodableValue("error_string")] = flutter::EncodableValue("");
+                channel_->InvokeMethod("OnMtuChanged", std::make_unique<flutter::EncodableValue>(response));
+            }
+        }
+        result->Success(flutter::EncodableValue(true));
+        return;
+    }
     if (method == "requestConnectionPriority") { result->Success(flutter::EncodableValue(true)); return; }
     if (method == "setPreferredPhy") { result->Success(flutter::EncodableValue(true)); return; }
     if (method == "turnOn") { result->Success(flutter::EncodableValue(false)); return; }
